@@ -1,32 +1,26 @@
 use neon::prelude::*;
-use serde_json::{Result, Value};
+use serde_json::Value;
+use std::fs::File;
+use std::io::BufReader;
 
-fn untyped_example(mut cx: FunctionContext) -> JsResult<JsNull> {
-    // Some JSON input data as a &str. Maybe this comes from the user.
-    let data = r#"
-        {
-            "name": "John Doe",
-            "age": 43,
-            "phones": [
-                "+44 1234567",
-                "+44 2345678"
-            ]
-        }"#;
+fn count_items(mut cx: FunctionContext) -> JsResult<JsString> {
+    let filename = cx.argument::<JsString>(0)?;
+
+    let f = File::open(filename.value()).unwrap();
+    let f = BufReader::new(f);
 
     // Parse the string of data into serde_json::Value.
-    let v: Value = serde_json::from_str(data).unwrap();
+    let data: Value = serde_json::from_reader(f).unwrap();
 
-    // Access parts of the data by indexing with square brackets.
-    println!("Please call {} at the number {}", v["name"], v["phones"][0]);
+    let count = match data {
+        Value::Array(array) => Some(array.len()),
+        _ => None,
+    };
 
-    Ok(cx.null())
-}
-fn hello(mut cx: FunctionContext) -> JsResult<JsString> {
-    Ok(cx.string("hello node"))
+    Ok(cx.string(count.unwrap_or(0).to_string()))
 }
 
 register_module!(mut cx, {
-    cx.export_function("untyped_example", untyped_example);
-    cx.export_function("hello", hello);
+    cx.export_function("count_items", count_items);
     Ok(())
 });
